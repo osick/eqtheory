@@ -26,6 +26,7 @@ from eqtheory.llm import OpenRouterClient                   # noqa: E402
 def run(args):
     k, n = (int(x) for x in args.shard.split("/"))
     rows = [json.loads(l) for l in open(args.problems, encoding="utf-8") if l.strip()]
+    rows = [r for r in rows if r["id"].startswith(args.only)]
     rows = [r for i, r in enumerate(rows) if i % n == k]
     cfg = lean_check.configure(timeout=args.lean_timeout)
     if cfg is None:
@@ -45,7 +46,8 @@ def run(args):
             t0 = time.monotonic()
             calls0 = client.calls if client else 0
             try:
-                ans = solve(pr, Config(), judge=judge, complete=client, trace=tr)
+                make = Config.latency if args.profile == "latency" else Config
+                ans = solve(pr, make(), judge=judge, complete=client, trace=tr)
                 err = None
             except Exception as e:  # noqa: BLE001
                 ans, err = None, repr(e)
@@ -94,6 +96,8 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("problems", nargs="?"); p.add_argument("outdir")
     p.add_argument("--shard", default="0/1"); p.add_argument("--llm", action="store_true")
+    p.add_argument("--profile", choices=("default", "latency"), default="default")
+    p.add_argument("--only", default="", help="only ids starting with this prefix")
     p.add_argument("--lean-timeout", type=float, default=300.0); p.add_argument("--report", action="store_true")
     a = p.parse_args()
     report(a.outdir) if a.report else run(a)

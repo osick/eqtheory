@@ -68,6 +68,13 @@ next certificate immediately.
 
 ## Budgets
 
+`Config.latency()` is the low-latency profile: a short countermodel pass
+(default 15 s: linear families plus the complete Fin 4–5 rungs) runs
+right after the scan, so False problems with small models are answered in
+seconds instead of waiting behind the proof engines. The default order
+keeps the proof engines first (the competition tuning). CLI:
+`eqtheory solve --profile latency …`.
+
 `Config` fields: `eqsat_budget` (s, per query), `superposition_ladder`
 (tuples `(size_cap, rounds, node_budget, max_lemmas, interreduce)`),
 `superposition_budget`, `model_budget`, `max_model_n`, `infinite_budget`,

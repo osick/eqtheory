@@ -31,7 +31,8 @@ def _judge(a):
 
 def cmd_solve(a):
     pr = _problem(a)
-    cfg = Config(model_budget=a.model_budget, superposition_budget=a.superposition_budget,
+    make = Config.latency if a.profile == "latency" else Config
+    cfg = make(model_budget=a.model_budget, superposition_budget=a.superposition_budget,
                            eqsat_budget=a.eqsat_budget, infinite_budget=a.infinite_budget, llm_rounds=a.llm_rounds)
     complete = None
     if a.llm:
@@ -159,6 +160,8 @@ def main(argv=None):
 
     s = sub.add_parser("solve", help="run the full ladder"); common(s, lean=True)
     s.add_argument("--json", action="store_true"); s.add_argument("--out", help="write the certificate here")
+    s.add_argument("--profile", choices=("default", "latency"), default="default",
+                   help="latency = short countermodel pass before the proof engines")
     s.add_argument("--model-budget", type=float, default=60.0); s.add_argument("--superposition-budget", type=float, default=300.0)
     s.add_argument("--eqsat-budget", type=float, default=25.0); s.add_argument("--infinite-budget", type=float, default=20.0)
     s.add_argument("--llm", action="store_true", help="add an LLM round (OPENROUTER_API_KEY)")

@@ -108,7 +108,7 @@ shows the effective values (see the [guide](docs/guide.md#configuration)).
 
 ## Status
 
-Version 0.2.0 (2026-09-01). Tests: `python -m pytest` (76 tests; the Lean
+Version 0.3.0 (2026-09-01). Tests: `python -m pytest` (83 tests; the Lean
 tests skip themselves when no toolchain is installed). Benchmark (2026-09-01, 200-problem stress set shipped in
 `artifacts/problems/`, every self-contained certificate compiled with a
 plain Lean 4 toolchain, LLM never needed): **200/200 correct** — see

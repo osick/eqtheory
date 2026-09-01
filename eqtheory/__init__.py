@@ -14,7 +14,7 @@ from .terms import (  # noqa: F401
     kbo_greater, holds, evaluate,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 from .config import settings, configure  # noqa: E402,F401
 from .solve import solve, Answer, Config, Trace  # noqa: E402,F401

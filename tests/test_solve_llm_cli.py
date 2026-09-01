@@ -92,3 +92,15 @@ def test_lean_check_end_to_end():
     assert ans is not None and ans.verdict == "false"
     ans = solve(EQSAT, Config(model_budget=5), judge=lean_check.make_judge(cfg))
     assert ans is not None and ans.verdict == "true"
+
+
+def test_latency_profile_answers_false_problems_fast():
+    import time as _t
+    hard_false = Problem.parse("x = (y ◇ (x ◇ y)) ◇ (x ◇ (y ◇ y))", "x = (x ◇ ((y ◇ x) ◇ x)) ◇ y")
+    t0 = _t.monotonic()
+    tr = Trace()
+    ans = solve(hard_false, Config.latency(), trace=tr)
+    took = _t.monotonic() - t0
+    assert ans is not None and ans.verdict == "false"
+    assert took < 60 and tr.steps[2][0] == "finite-models-early"
+    assert solve(hard_false, Config.latency(eqsat_budget=5)).verdict == "false"

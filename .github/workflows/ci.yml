@@ -44,7 +44,7 @@ jobs:
           curl -sSfL https://github.com/leanprover/elan/releases/latest/download/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
           ./elan-init -y --default-toolchain leanprover/lean4:v4.33.1
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-      - run: python -m pip install -e .
+      - run: python -m pip install -e ".[dev]"
       - name: Compile every certificate shape with Lean
         run: python -m pytest -q tests/test_lean.py tests/test_solve_llm_cli.py -k "lean"
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eqtheory"
-version = "0.2.0"
+version = "0.3.0"
 description = "Equational theories over magmas: term rewriting with a Knuth-Bendix order, proof-producing e-graphs, goal-directed superposition, finite and infinite countermodels, Lean 4 certificates."
 readme = "README.md"
 requires-python = ">=3.11"

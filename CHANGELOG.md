@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 (2026-09-01)
+- `Config.latency()` / `eqtheory solve --profile latency`: a short
+  countermodel pass before the proof engines. Measured on the stress
+  set's extra_hard family (Lean-checked): median 383.7 s → 15.4 s, max
+  400.9 s → 18.2 s, verdicts identical
+  (`artifacts/bench-latency-extrahard/REPORT.md`).
+
 ## 0.2.0 (2026-09-01)
 - **Self-contained certificates.** Every Lean certificate now declares the
   `Magma` class, the two laws and the goal itself and checks with a plain
