@@ -1,0 +1,4 @@
+digraph proof {
+  node [fontname="monospace", fontsize=10, shape=box];
+  main [label="x = (x ◇ y) ⇒ x = ((x ◇ y) ◇ z)", style=filled, fillcolor="#ffd166"];
+}
