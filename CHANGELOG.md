@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 (2026-09-01)
+- Housekeeping: removed leftover references to the solver's private
+  development repository and its paper from README and docs; dropped the
+  one-time repository-export script; `docs/releasing.md` is now just
+  "CI and releases". No code changes.
+
 ## 0.3.0 (2026-09-01)
 - `Config.latency()` / `eqtheory solve --profile latency`: a short
   countermodel pass before the proof engines. Measured on the stress

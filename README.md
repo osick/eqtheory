@@ -29,9 +29,8 @@ the second — and hand back a **Lean 4 certificate** either way.
 * an optional, hygienic **LLM stage** with a configurable prompt,
 * a **CLI** with e-graph and proof **visualisation** (SVG/PNG/DOT).
 
-The algorithms are those of the SAIR Stage-2 solver (800/800 practice,
-see the paper in [osick/SAIR-callenges](https://github.com/osick/SAIR-callenges/tree/main/challenge_02/docs/paper)),
-re-packaged with a clean API. Pure Python 3.11+,
+The algorithms grew out of a solver for the SAIR Stage-2 challenge on
+equational implications, re-packaged with a clean API. Pure Python 3.11+,
 no required dependencies.
 
 ## Install
@@ -101,14 +100,14 @@ shows the effective values (see the [guide](docs/guide.md#configuration)).
 * [Certificates](docs/certificates.md) — the Lean shapes and the proof-policy lessons
 * [API overview](docs/api.md)
 * [Limitations](docs/limitations.md) — theoretical and pragmatic
-* [Releasing](docs/releasing.md) — moving to its own repository, CI, tags, PyPI
+* [Releasing](docs/releasing.md) — CI, tags, PyPI
 * `examples/single_file_solver.py` — a complete solver in 60 lines
 * `artifacts/` — sample renderings and benchmark reports
 * `scripts/make_logo.py` — the logo above is generated from a real solve (the e-graph proof of `x = x ◇ y ⇒ x = (x ◇ y) ◇ z`)
 
 ## Status
 
-Version 0.3.0 (2026-09-01). Tests: `python -m pytest` (83 tests; the Lean
+Version 0.3.1 (2026-09-01). Tests: `python -m pytest` (83 tests; the Lean
 tests skip themselves when no toolchain is installed). Benchmark (2026-09-01, 200-problem stress set shipped in
 `artifacts/problems/`, every self-contained certificate compiled with a
 plain Lean 4 toolchain, LLM never needed): **200/200 correct** — see

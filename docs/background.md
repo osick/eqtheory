@@ -2,8 +2,7 @@
 
 This chapter states the theory each engine rests on and where it comes
 from. Every reference below is a published paper or book, or an arXiv
-preprint with its identifier; the ones marked *(validated 2026-08)* were
-checked against the source when the accompanying paper was written.
+preprint with its identifier.
 
 ## 1. Equational logic and magmas
 
