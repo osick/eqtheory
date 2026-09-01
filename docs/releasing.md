@@ -26,9 +26,8 @@ paper) and `docs/references.bib` (already a copy).
 `.github/workflows/ci.yml` runs on every push and pull request:
 pyflakes, pytest with coverage (fails under 80 %), a CLI smoke test with
 graphviz installed, and a build + `twine check` of sdist and wheel, on
-Python 3.11–3.13. The Lean end-to-end test skips itself in CI (no
-toolchain); run it locally with `EQTHEORY_LEAN_BIN` and
-`EQTHEORY_JUDGE_ROOT` set.
+Python 3.11–3.13. A separate `lean` job installs Lean 4 via elan and
+compiles every certificate shape (`tests/test_lean.py`).
 
 ## 3. Releases
 

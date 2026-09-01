@@ -24,8 +24,8 @@ the second — and hand back a **Lean 4 certificate** either way.
   symmetry breaking (exhaustion verdicts are proofs),
 * **infinite countermodels on ℕ** for *Austin pairs* (true in every
   finite magma, false in general),
-* **Lean 4 certificates** for every answer, in the shapes accepted by the
-  SAIR Stage-2 judge, with an optional compile check,
+* **Lean 4 certificates** for every answer — self-contained files that
+  check with a plain Lean 4 toolchain (no Mathlib) — and a compile check,
 * an optional, hygienic **LLM stage** with a configurable prompt,
 * a **CLI** with e-graph and proof **visualisation** (SVG/PNG/DOT).
 
@@ -85,9 +85,14 @@ eqtheory viz-proof --out proof.dot ...                          # the extracted 
 eqtheory cert --table "[[0,1],[1,0]]" ...                       # wrap a table as a certificate
 ```
 
-`--lean` needs `EQTHEORY_LEAN_BIN` (a Lean 4.33 binary) and
-`EQTHEORY_JUDGE_ROOT` (a built checkout of the Stage-2 judge library) or
-`EQTHEORY_LEAN_PATH`. `--llm` needs `OPENROUTER_API_KEY`.
+`--lean` needs a Lean 4 toolchain — `lean` on the `PATH` (an [elan](https://github.com/leanprover/elan)
+install is found automatically) or the `lean_bin` setting; certificates
+are self-contained and pinned to the `lean_toolchain` setting (default
+the validated `leanprover/lean4:v4.33.1`, which elan fetches on first
+use). `--llm` needs the API key named by `llm_api_key_env` (default
+`OPENROUTER_API_KEY`). All defaults are settings: `eqtheory.toml`,
+`EQTHEORY_*` variables or `eqtheory.configure(...)` — `eqtheory config`
+shows the effective values (see the [guide](docs/guide.md#configuration)).
 
 ## Documentation
 
@@ -103,19 +108,19 @@ eqtheory cert --table "[[0,1],[1,0]]" ...                       # wrap a table a
 
 ## Status
 
-Version 0.1.0 (2026-09-01). Tests: `python -m pytest` (70 tests; the Lean
-end-to-end test is skipped unless Lean is configured). Benchmark (2026-09-01, 200-problem Stage-2 stress set, every certificate
-compiled with Lean, LLM never needed): **200/200 correct** — see
-`artifacts/bench-stress-2026-09-01/REPORT.md`.
+Version 0.2.0 (2026-09-01). Tests: `python -m pytest` (76 tests; the Lean
+tests skip themselves when no toolchain is installed). Benchmark (2026-09-01, 200-problem stress set shipped in
+`artifacts/problems/`, every self-contained certificate compiled with a
+plain Lean 4 toolchain, LLM never needed): **200/200 correct** — see
+`artifacts/bench-stress-2026-09-01-standalone/REPORT.md`.
 
 ## Limitations (short form)
 
 Implication between magma laws is undecidable; every engine is budgeted,
 so "no answer" is not a verdict. Finite search is complete per size but
 cannot see infinite-only countermodels beyond the ℕ residue-class family;
-table certificates stop at Fin 10 (affine models go further); `grind`
-certificates are Lean-version-sensitive; the compile check is not the
-competition judge; the LLM stage adds hygiene, not reach. Details and
+`decide`-checked tables grow with n^(variables); `grind`
+certificates are Lean-version-sensitive; the LLM stage adds hygiene, not reach. Details and
 measurements: [docs/limitations.md](docs/limitations.md).
 
 License: MIT.

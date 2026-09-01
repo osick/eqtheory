@@ -28,7 +28,7 @@ Terms are plain tuples; `match`, `unify`, `substitute`, `positions`,
 | scan | all tables on Fin 2–3 | false |
 | eqsat-singleton / eqsat-goal (± lemmas) | equality saturation, staged instantiation caps | true |
 | superposition | ordered completion ladder, goal-directed | true |
-| finite-models | linear families → structured → complete search ≤ Fin 10 | false |
+| finite-models | linear families → structured → complete search ≤ Fin 12 (`max_model_n`) | false |
 | infinite-models | residue-class affine models on ℕ | false |
 | seeded-grind *(judge)* | derived lemmas as `have`s + `grind` | true |
 | llm *(complete)* | one LLM round, verified | either |
@@ -37,7 +37,7 @@ Every stage is a function `stage_*` in `eqtheory.solve` that returns an
 `Answer(verdict, code, stage, verified, model)` or `None`. Compose your
 own order by calling them directly.
 
-A `judge(verdict, code) -> bool` callback (see `eqtheory.lean.check.make_judge`)
+A `judge(verdict, code) -> bool` callback (`eqtheory.lean.check.make_judge(cfg)`)
 enables the Lean-dependent stages and re-checks every certificate before
 it is returned. A `Completer` (`prompt -> str`, e.g.
 `eqtheory.llm.OpenRouterClient()`) adds the LLM round.
@@ -45,6 +45,26 @@ it is returned. A `Completer` (`prompt -> str`, e.g.
 `Trace` collects per-stage timings, the search facts (sizes *proven* free
 of countermodels) and the list of stages that failed — the negative
 knowledge the LLM prompt is built from.
+
+## Configuration
+
+Every default that is a choice rather than a theorem lives in
+`eqtheory.config.Settings`: the Lean toolchain the certificates are
+pinned to (`lean_toolchain`, `None` = no pin), the Lean binary and
+timeout, `maxRecDepth`, the finite-search reach (`model_max_n`), the SAT
+memory budget, and the LLM defaults (model, endpoint, key variable, seed,
+effort, rounds). Resolution order, later wins:
+
+1. the shipped defaults,
+2. a TOML file: `EQTHEORY_CONFIG`, else `./eqtheory.toml`, else
+   `~/.config/eqtheory/config.toml` (see `eqtheory.toml.example`),
+3. environment variables `EQTHEORY_<FIELD>` (e.g. `EQTHEORY_LEAN_TOOLCHAIN`,
+   `EQTHEORY_MODEL_MAX_N`; `none`/empty clears an optional field),
+4. `eqtheory.configure(lean_toolchain="leanprover/lean4:v4.34.0", model_max_n=14)`.
+
+`eqtheory config` prints the effective values and where each comes from.
+Settings are read at call time, so a `configure(...)` applies to the
+next certificate immediately.
 
 ## Budgets
 
@@ -81,10 +101,18 @@ eg.render("egraph.png", highlight=(l, r), proof_pairs=((l, r),))
 
 ## Certificates
 
-`eqtheory.lean.certs` renders proofs and models as Lean 4 sources in the
-judge's shapes (see [certificates.md](certificates.md)).
-`eqtheory.lean.check.compile_certificate` compiles one against a built
-judge library — a compile check, not the competition judge.
+`eqtheory.lean.certs` renders proofs and models as self-contained Lean 4
+files (see [certificates.md](certificates.md)); each declares the
+`Magma` class and the two laws, so a plain toolchain checks it:
+
+```python
+from eqtheory.lean import check as lean_check
+cfg = lean_check.configure()                 # finds lean on PATH / elan / EQTHEORY_LEAN_BIN
+res = lean_check.compile_certificate(ans.code, cfg)   # CheckResult(ok, verdict, seconds, output)
+judge = lean_check.make_judge(cfg)           # judge(verdict, code) -> bool for solve(...)
+```
+
+The historical SAIR judge shapes are available with `style="judge"`.
 
 ## LLM stage
 

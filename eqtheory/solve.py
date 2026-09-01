@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from . import completion, egraph, llm as llm_mod
+from .config import settings
 from .lean import certs
 from .models import finite, infinite
 from .terms import Problem, render_term, term_vars
@@ -47,10 +48,10 @@ class Config:
     superposition_ladder: tuple = completion.DEFAULT_LADDER
     superposition_budget: float = 300.0
     model_budget: float = 60.0
-    max_model_n: int = finite.MAX_TABLE_N
+    max_model_n: int = field(default_factory=lambda: settings.model_max_n)
     infinite_budget: float = 20.0
     grind_seed_budget: float = 60.0
-    llm_rounds: int = 4
+    llm_rounds: int = field(default_factory=lambda: settings.llm_rounds)
     inst_caps: tuple = (20_000, 75_000, 300_000)
 
 
@@ -75,12 +76,12 @@ def stage_singleton_forcing(problem: Problem) -> Answer | None:
     proof = (f"intro {' '.join(goal.variables)}\n" if goal.variables else "") + \
         f"have singleton : ∀ (a b : G), a = b := fun a b => (h {args('a')}).trans (h {args('b')}).symm\n" \
         f"exact singleton ({render_term(goal.lhs)}) ({render_term(goal.rhs)})"
-    return Answer("true", certs.true_code(proof), "singleton-forcing")
+    return Answer("true", certs.true_code(proof, hyp, goal), "singleton-forcing")
 
 
 def stage_scan(problem: Problem, max_n: int = 3) -> Answer | None:
     cm, _ = finite.scan(problem.hypothesis, problem.goal, max_n)
-    return Answer("false", certs.false_code(cm.n, cm.table), "scan", model=cm) if cm else None
+    return Answer("false", certs.false_code(cm.n, cm.table, problem.hypothesis, problem.goal), "scan", model=cm) if cm else None
 
 
 def _staged(query, hyp, budget, caps, *args, lemmas=()):
@@ -116,7 +117,7 @@ def stage_eqsat_singleton(problem: Problem, cfg: Config = Config(), with_lemmas:
     proof = (f"intro {' '.join(goal.variables)}\n" if goal.variables else "") + \
         f"have singleton : ∀ (a b : G), a = b := by\n  intro a b\n{block}  exact {expr}\n" \
         f"exact singleton {render_term(goal.lhs)} {render_term(goal.rhs)}"
-    return Answer("true", certs.true_code(proof), "eqsat-singleton" + ("+lemmas" if with_lemmas else ""))
+    return Answer("true", certs.true_code(proof, hyp, goal), "eqsat-singleton" + ("+lemmas" if with_lemmas else ""))
 
 
 def stage_eqsat_goal(problem: Problem, cfg: Config = Config(), with_lemmas: bool = False) -> Answer | None:
@@ -146,21 +147,21 @@ def stage_superposition(problem: Problem, cfg: Config = Config()) -> Answer | No
 def stage_finite_models(problem: Problem, cfg: Config = Config(), facts: finite.SearchFacts | None = None) -> Answer | None:
     cm = finite.find_countermodel(problem.hypothesis, problem.goal, time_budget=cfg.model_budget,
                                   max_n=cfg.max_model_n, facts=facts)
-    return Answer("false", certs.false_code(cm.n, cm.table), "finite-model", model=cm) if cm else None
+    return Answer("false", certs.false_code(cm.n, cm.table, problem.hypothesis, problem.goal), "finite-model", model=cm) if cm else None
 
 
 def stage_infinite_models(problem: Problem, cfg: Config = Config()) -> Answer | None:
     m = infinite.residue_affine_countermodel(problem.hypothesis, problem.goal, time_budget=cfg.infinite_budget)
     if m is None:
         return None
-    code = certs.false_nat_residue_code(problem.hypothesis, m.m, m.A, m.B, m.C, m.witness)
+    code = certs.false_nat_residue_code(problem.hypothesis, m.m, m.A, m.B, m.C, m.witness, problem.goal)
     return Answer("false", code, "nat-residue-model", model=m)
 
 
 def stage_seeded_grind(problem: Problem, judge: Judge, cfg: Config = Config(), tried: list | None = None) -> Answer | None:
     seeds = completion.seed_lemmas(problem.hypothesis, deadline=time.monotonic() + cfg.grind_seed_budget)
     for label, body in certs.seeded_grind_bodies(problem.hypothesis, problem.goal, list(seeds)):
-        code = certs.true_code(body)
+        code = certs.true_code(body, problem.hypothesis, problem.goal)
         if judge("true", code):
             return Answer("true", code, label)
         if tried is not None:
@@ -181,9 +182,11 @@ def stage_llm(problem: Problem, complete: llm_mod.Completer, judge: Judge | None
 
 def solve(problem: Problem | tuple[str, str], cfg: Config = Config(), *, judge: Judge | None = None,
           complete: llm_mod.Completer | None = None, trace: Trace | None = None) -> Answer | None:
-    """Run the default ladder. ``judge(verdict, code) -> bool`` enables the
-    Lean-dependent stages (seeded grind, verified LLM proofs) and, when
-    given, re-checks every certificate before it is returned."""
+    """Run the default ladder. ``judge(verdict, code) -> bool`` (see
+    :func:`eqtheory.lean.check.make_judge`) enables the Lean-dependent
+    stages (seeded grind, verified LLM proofs) and re-checks every
+    certificate before it is returned. Certificates are self-contained
+    Lean 4 files (:mod:`eqtheory.lean.certs`)."""
     if not isinstance(problem, Problem):
         problem = Problem.parse(*problem)
     tr = trace if trace is not None else Trace()

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.0 (2026-09-01)
+- **Self-contained certificates.** Every Lean certificate now declares the
+  `Magma` class, the two laws and the goal itself and checks with a plain
+  Lean 4 toolchain (core only, no Mathlib, no competition library). The
+  Stage-2 judge shapes remain available as `style="judge"`.
+- Finite countermodels of **any size** are certifiable (table as
+  `Array (Array Nat)` + `decide`); the Fin-10 ceiling was a judge artefact.
+  Default search reach `DEFAULT_MAX_N = 12`.
+- `eqtheory.lean.check`: needs only a `lean` binary (PATH, elan, or
+  `EQTHEORY_LEAN_BIN`); pins the validated toolchain with a
+  `lean-toolchain` file; `make_judge(cfg)` no longer needs the problem.
+- New `tests/test_lean.py`: every certificate shape compiled with a real
+  toolchain; CI installs Lean via elan and runs them. Stress set re-run
+  with the new certificates: 200/200, identical stage distribution
+  (`artifacts/bench-stress-2026-09-01-standalone/REPORT.md`).
+- README logo generated from a real solve (`scripts/make_logo.py`), PyPI
+  badges and install instructions.
+- `eqtheory.config`: no fixed versions or defaults in code — toolchain,
+  Lean binary/timeout/recursion depth, search reach, SAT memory and LLM
+  defaults resolve defaults → TOML → `EQTHEORY_*` env → `configure()`;
+  `eqtheory config` shows the effective values.
+
 ## 0.1.0 (2026-09-01)
 First release — the Stage-2 solver's algorithms as a library. Validated
 200/200 on the Stage-2 stress set with Lean-checked certificates

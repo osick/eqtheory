@@ -24,7 +24,7 @@ class TestCLI:
     def test_solve_text_and_json(self, capsys, tmp_path):
         cli.main(["solve", "--model-budget", "5", "--out", str(tmp_path / "c.lean"), FALSE.hypothesis.text, FALSE.goal.text])
         out = capsys.readouterr().out
-        assert "verdict: false" in out and (tmp_path / "c.lean").read_text().startswith("import JudgeProblem")
+        assert "verdict: false" in out and (tmp_path / "c.lean").read_text().startswith("-- eqtheory certificate")
         cli.main(["solve", "--json", "--model-budget", "5", EQSAT.hypothesis.text, EQSAT.goal.text])
         assert json.loads(capsys.readouterr().out)["verdict"] == "true"
 
@@ -38,7 +38,7 @@ class TestCLI:
         cli.main(["prove", "--budget", "2", FALSE.hypothesis.text, FALSE.goal.text])
         assert "no superposition proof" in capsys.readouterr().out
         cli.main(["cert", "--table", "[[0,0],[1,1]]", "x = x", "x = y"])
-        assert "finOpTable" in capsys.readouterr().out
+        assert "submission.op" in capsys.readouterr().out
         with pytest.raises(SystemExit):
             cli.main(["cert", "--table", "[[0,0],[0,0]]", "x = x", "x = x"])
         body = tmp_path / "body.txt"; body.write_text("intro x\nrfl")
@@ -67,7 +67,11 @@ class TestLeanCheck:
         for k in ("EQTHEORY_LEAN_BIN", "EQTHEORY_JUDGE_ROOT", "EQTHEORY_LEAN_PATH"):
             monkeypatch.delenv(k, raising=False)
         monkeypatch.setattr(lean_check.shutil, "which", lambda name: None)
+        monkeypatch.setattr(lean_check, "search_paths", lambda: [])
+        monkeypatch.setattr(lean_check.settings, "lean_bin", None)
         assert lean_check.configure() is None
+        assert lean_check.verdict_of(lean_check.prelude(FALSE.hypothesis, FALSE.goal, "false")) == "false"
+        assert lean_check.verdict_of("theorem x") == "true"
         (tmp_path / ".lake/packages/mathlib/.lake/build/lib/lean").mkdir(parents=True)
         lp = lean_check.lean_path_for(tmp_path)
         assert "packages/mathlib" in lp and lp.startswith(str(tmp_path))
@@ -75,11 +79,19 @@ class TestLeanCheck:
     def test_compile_with_fake_lean(self, tmp_path):
         fake = tmp_path / "lean"
         fake.write_text("#!/bin/sh\necho ok\n"); fake.chmod(0o755)
-        cfg = lean_check.LeanConfig(str(fake), "/nonexistent", 5)
-        res = lean_check.compile_certificate(FALSE.hypothesis, FALSE.goal, "false", "def submission : Goal := sorry",
-                                             cfg, workdir=str(tmp_path / "w"))
-        assert res.ok and (tmp_path / "w" / "Submission.lean").exists()
-        assert lean_check.make_judge(FALSE.hypothesis, FALSE.goal, cfg)("false", "x")
+        cfg = lean_check.LeanConfig(str(fake), None, 5)
+        code = lean_check.prelude(FALSE.hypothesis, FALSE.goal, "false") + "theorem submission : Goal := by decide\n"
+        res = lean_check.compile_certificate(code, cfg, workdir=str(tmp_path / "w"))
+        assert res.ok and res.verdict == "false" and (tmp_path / "w" / "Certificate.lean").exists()
+        assert (tmp_path / "w" / "lean-toolchain").read_text().startswith("leanprover/lean4:")
+        assert lean_check.make_judge(cfg)("false", "theorem x")
+        # judge-style code without the judge library is refused, not compiled
+        res = lean_check.compile_certificate("import JudgeProblem\n", cfg)
+        assert not res.ok and "judge library" in res.output
+        cfg2 = lean_check.LeanConfig(str(fake), "/nonexistent", 5)
+        res = lean_check.compile_certificate("import JudgeProblem\n", cfg2, workdir=str(tmp_path / "j"),
+                                             hyp=FALSE.hypothesis, goal=FALSE.goal, verdict="false")
+        assert res.ok and (tmp_path / "j" / "Submission.lean").exists()
 
 
 class TestLLMClient:

@@ -1,28 +1,34 @@
 """Lean 4 certificate generation.
 
-All shapes here were accepted by the official Stage-2 judge (Lean 4.33.1,
-official proof policy) in 2026-08; the comments record what each shape
-avoids. Two constraints drive the spellings:
+Default style ``"standalone"``: every certificate is a **self-contained
+Lean 4 file** — it declares the ``Magma`` class, the two laws and the
+goal itself and needs nothing but a Lean 4 toolchain (no Mathlib, no
+external library). True answers are explicit proof terms; finite
+countermodels are tables (any size) or affine closed forms checked by
+``decide``; infinite countermodels are ℕ operations whose law is proved
+by ``grind`` and refuted by a witness.
 
-* ``finOpTable`` parses one digit per entry, so explicit tables are only
-  emitted for carriers up to :data:`MAX_FINOPTABLE_N`.
-* The judge's proof policy is a declaration *allowlist*. The infix
-  operators ``+ * %`` compile to ``HAdd.hAdd``/``HMul.hMul``/``HMod.hMod``
-  and ``by decide`` on ``0 < n`` to ``LT.lt`` — none allowlisted — so
-  closed forms are spelled with ``Nat.add``/``Nat.mul``/``Nat.mod`` by name.
-  Helpers in the ``submission.`` namespace are allowlisted by prefix, which
-  is what makes the ℕ-carrier certificate possible.
+Style ``"judge"`` reproduces the shapes accepted by the SAIR Stage-2
+judge (2026-08), which compiled against its own library
+(``import JudgeProblem``, ``finOpTable`` with one digit per entry — hence
+:data:`MAX_FINOPTABLE_N` —, ``decideFin!``, and a declaration allowlist
+that forced ``Nat.mod (Nat.add …)`` spellings). Kept for reproducing the
+competition results; not needed otherwise.
 """
 from __future__ import annotations
 
 import json
 from typing import Mapping, Sequence
 
+from ..config import settings
 from ..proofs import Chain
 from ..terms import Equation, Term, render_term, substitute
 
-MAX_FINOPTABLE_N = 10
-MAX_REC_DEPTH = 20_000
+MAX_FINOPTABLE_N = 10      # a property of the historical judge's finOpTable
+
+
+def _rec_depth() -> str:
+    return f"set_option maxRecDepth {settings.lean_max_rec_depth}\n"
 
 
 # ── proof chains → Lean terms ────────────────────────────────────────────
@@ -169,14 +175,52 @@ def shared_proof_lines(hyp: Equation, lemmas: list, chain: Chain, start: Term, r
 
 # ── certificate bodies ───────────────────────────────────────────────────
 
-def true_code(proof_body: str, max_heartbeats: int | None = None) -> str:
-    """The judge's True shape: ``def submission : Goal := by intro G _ h …``."""
+STANDALONE, JUDGE = "standalone", "judge"
+DEFAULT_STYLE = STANDALONE
+
+
+def _binders(eq: Equation) -> str:
+    return " ".join(f"({v} : G)" for v in eq.variables)
+
+
+def prelude(hyp: Equation, goal: Equation, verdict: str) -> str:
+    """The self-contained header: ``Magma``, the two laws, the ``Goal``."""
+    target = ("∀ (G : Type) [Magma G], EquationLHS G → EquationRHS G" if verdict == "true"
+              else "∃ (G : Type) (_ : Magma G), EquationLHS G ∧ ¬ EquationRHS G")
+    pin = f" (generated for {settings.lean_toolchain})" if settings.lean_toolchain else ""
+    return (f"-- eqtheory certificate: self-contained, checks with a plain Lean 4 toolchain{pin}\n"
+            "class Magma (α : Type u) where\n  op : α → α → α\n"
+            'infixl:65 " ◇ " => Magma.op\n\n'
+            f"@[reducible] def EquationLHS (G : Type) [Magma G] : Prop := ∀ {_binders(hyp)}, {hyp.text}\n"
+            f"@[reducible] def EquationRHS (G : Type) [Magma G] : Prop := ∀ {_binders(goal)}, {goal.text}\n"
+            f"abbrev Goal : Prop := {target}\n\n")
+
+
+def _style(style, hyp, goal):
+    style = style or DEFAULT_STYLE
+    if style == STANDALONE and (hyp is None or goal is None):
+        raise ValueError("standalone certificates need the hypothesis and the goal")
+    if style not in (STANDALONE, JUDGE):
+        raise ValueError(f"unknown certificate style {style!r}")
+    return style
+
+
+def is_standalone(code: str) -> bool:
+    return not code.startswith("import JudgeProblem")
+
+
+def true_code(proof_body: str, hyp: Equation | None = None, goal: Equation | None = None, *,
+              style: str | None = None, max_heartbeats: int | None = None) -> str:
+    """Wrap a tactic body (after ``intro G _ h``) into a certificate."""
+    style = _style(style, hyp, goal)
     lines = proof_body.strip().split("\n")
     indented = "\n".join("  " + ln if ln.strip() else "" for ln in lines)
-    opts = f"set_option maxRecDepth {MAX_REC_DEPTH}\n"
+    opts = _rec_depth()
     if max_heartbeats is not None:
         opts += f"set_option maxHeartbeats {int(max_heartbeats)}\n"
-    return f"import JudgeProblem\n{opts}\ndef submission : Goal := by\n  intro G _ h\n{indented}\n"
+    if style == JUDGE:
+        return f"import JudgeProblem\n{opts}\ndef submission : Goal := by\n  intro G _ h\n{indented}\n"
+    return f"{prelude(hyp, goal, 'true')}{opts}\ntheorem submission : Goal := by\n  intro G _ h\n{indented}\n"
 
 
 def _affine_form(n: int, table):
@@ -190,33 +234,58 @@ def _affine_form(n: int, table):
     return a, b, c
 
 
-def false_table_code(n: int, table) -> str:
-    """Finite countermodel as an explicit table (n ≤ MAX_FINOPTABLE_N)."""
-    return ("import JudgeProblem\nimport JudgeDecide.DecideBang\nimport JudgeFinOp.MemoFinOp\nopen MemoFinOp\n"
-            f"set_option maxRecDepth {MAX_REC_DEPTH}\nset_option maxHeartbeats 0\n\n"
-            "def submission : Goal := by\n"
-            f"  let m : Magma (Fin {n}) := {{\n    op := finOpTable \"{json.dumps(table)}\"\n  }}\n"
-            f"  refine ⟨Fin {n}, m, ?_⟩\n  decideFin!\n")
+def false_table_code(n: int, table, hyp: Equation | None = None, goal: Equation | None = None, *,
+                     style: str | None = None) -> str:
+    """Finite countermodel as an explicit table. Standalone: any size, the
+    table is an ``Array (Array Nat)`` and both facts are decided by
+    ``decide``. Judge: ``finOpTable`` (n ≤ MAX_FINOPTABLE_N) + ``decideFin!``."""
+    style = _style(style, hyp, goal)
+    if style == JUDGE:
+        return ("import JudgeProblem\nimport JudgeDecide.DecideBang\nimport JudgeFinOp.MemoFinOp\nopen MemoFinOp\n"
+                f"{_rec_depth()}set_option maxHeartbeats 0\n\n"
+                "def submission : Goal := by\n"
+                f"  let m : Magma (Fin {n}) := {{\n    op := finOpTable \"{json.dumps(table)}\"\n  }}\n"
+                f"  refine ⟨Fin {n}, m, ?_⟩\n  decideFin!\n")
+    rows = ", ".join("#[" + ", ".join(str(v) for v in row) + "]" for row in table)
+    return (f"{prelude(hyp, goal, 'false')}"
+            f"-- model: table n={n}\n"
+            f"def submission.table : Array (Array Nat) := #[{rows}]\n"
+            f"def submission.op (i j : Fin {n}) : Fin {n} :=\n"
+            f"  ⟨(submission.table.getD i.val #[]).getD j.val 0 % {n}, Nat.mod_lt _ (by decide)⟩\n"
+            f"instance submission.inst : Magma (Fin {n}) := ⟨submission.op⟩\n\n"
+            f"{_rec_depth()}"
+            f"theorem submission : Goal := ⟨Fin {n}, submission.inst, by decide, by decide⟩\n")
 
 
-def false_affine_code(n: int, a: int, b: int, c: int) -> str:
-    """Affine countermodel (a·i + b·j + c) mod n in the allowlist-safe
-    named-function spelling — for carriers past the table ceiling."""
-    return ("import JudgeProblem\nimport JudgeDecide.DecideBang\n"
-            f"set_option maxRecDepth {MAX_REC_DEPTH}\nset_option maxHeartbeats 0\n\n"
-            "def submission : Goal := by\n"
-            f"  let m : Magma (Fin {n}) := {{\n"
-            f"    op := fun i j => ⟨Nat.mod (Nat.add (Nat.add (Nat.mul {a} i.val) (Nat.mul {b} j.val)) {c}) {n}, "
-            f"Nat.mod_lt _ (Nat.succ_pos {n - 1})⟩\n  }}\n"
-            f"  refine ⟨Fin {n}, m, ?_⟩\n  decideFin!\n")
+def false_affine_code(n: int, a: int, b: int, c: int, hyp: Equation | None = None, goal: Equation | None = None, *,
+                      style: str | None = None) -> str:
+    """Affine countermodel (a·i + b·j + c) mod n in closed form."""
+    style = _style(style, hyp, goal)
+    if style == JUDGE:
+        return ("import JudgeProblem\nimport JudgeDecide.DecideBang\n"
+                f"{_rec_depth()}set_option maxHeartbeats 0\n\n"
+                "def submission : Goal := by\n"
+                f"  let m : Magma (Fin {n}) := {{\n"
+                f"    op := fun i j => ⟨Nat.mod (Nat.add (Nat.add (Nat.mul {a} i.val) (Nat.mul {b} j.val)) {c}) {n}, "
+                f"Nat.mod_lt _ (Nat.succ_pos {n - 1})⟩\n  }}\n"
+                f"  refine ⟨Fin {n}, m, ?_⟩\n  decideFin!\n")
+    return (f"{prelude(hyp, goal, 'false')}"
+            f"-- model: affine n={n} a={a} b={b} c={c}\n"
+            f"def submission.op (i j : Fin {n}) : Fin {n} := ⟨({a} * i.val + {b} * j.val + {c}) % {n}, Nat.mod_lt _ (by decide)⟩\n"
+            f"instance submission.inst : Magma (Fin {n}) := ⟨submission.op⟩\n\n"
+            f"{_rec_depth()}"
+            f"theorem submission : Goal := ⟨Fin {n}, submission.inst, by decide, by decide⟩\n")
 
 
-def false_code(n: int, table) -> str:
-    """Table when the judge can read it, named-Nat affine form above."""
+def false_code(n: int, table, hyp: Equation | None = None, goal: Equation | None = None, *,
+               style: str | None = None) -> str:
+    """Closed affine form when the table has one, the table otherwise
+    (judge style: table only up to MAX_FINOPTABLE_N)."""
+    style = _style(style, hyp, goal)
     aff = _affine_form(n, table)
-    if aff is not None and n > MAX_FINOPTABLE_N:
-        return false_affine_code(n, *aff)
-    return false_table_code(n, table)
+    if aff is not None and (style == STANDALONE or n > MAX_FINOPTABLE_N):
+        return false_affine_code(n, *aff, hyp, goal, style=style)
+    return false_table_code(n, table, hyp, goal, style=style)
 
 
 def _residue_affine_text(a, b, c):
@@ -258,25 +327,29 @@ def _term_op_text(t: Term) -> str:
     return f"submission.op {l} {r}"
 
 
-def false_nat_residue_code(hyp: Equation, m: int, A, B, C, witness) -> str:
+def false_nat_residue_code(hyp: Equation, m: int, A, B, C, witness, goal: Equation | None = None, *,
+                           style: str | None = None) -> str:
     """Infinite countermodel on ℕ: op(x, y) = A[r][s]·x + B[r][s]·y + C[r][s]
     (truncated) with r = x mod m, s = y mod m. Law by
     ``simp only [submission.op]; grind``, refutation by a witness and
-    ``decide`` — the shape accepted for the Austin pair E1167 ⇒ E1763."""
+    ``decide`` — the shape that settled the Austin pair E1167 ⇒ E1763."""
+    style = _style(style, hyp, goal)
     show = f"{_term_op_text(hyp.lhs)} = {_term_op_text(hyp.rhs)}"
     wit = " ".join(str(v) for v in witness)
     params = f"-- model: porc m={m} A={A} B={B} C={C} witness={list(witness)}"
-    return (f"import JudgeProblem\n{params}\n\n"
+    header = "import JudgeProblem\n" if style == JUDGE else prelude(hyp, goal, "false")
+    decl = "def" if style == JUDGE else "theorem"
+    return (f"{header}{params}\n\n"
             f"def submission.op (a b : Nat) : Nat :=\n  {_residue_op_text(m, A, B, C)}\n\n"
             "def submission.inst : Magma Nat := { op := submission.op }\n\n"
             "theorem submission.lhs : @EquationLHS Nat submission.inst := by\n"
             f"  intro {' '.join(hyp.variables)}\n  show {show}\n  simp only [submission.op]\n  grind\n\n"
             "theorem submission.rhs : ¬ @EquationRHS Nat submission.inst := by\n"
             f"  intro h\n  have := h {wit}\n  revert this; decide\n\n"
-            "def submission : Goal :=\n  ⟨Nat, submission.inst, submission.lhs, submission.rhs⟩\n")
+            f"{decl} submission : Goal :=\n  ⟨Nat, submission.inst, submission.lhs, submission.rhs⟩\n")
 
 
-def superposition_code(hyp: Equation, goal: Equation, proof) -> str | None:
+def superposition_code(hyp: Equation, goal: Equation, proof, *, style: str | None = None) -> str | None:
     """Certificate for a goal reached by superposition (a
     :class:`~eqtheory.completion.SuperpositionProof`)."""
     lem_lines = lemma_haves(hyp, proof.derived, {proof.lemma["name"]})
@@ -287,7 +360,7 @@ def superposition_code(hyp: Equation, goal: Equation, proof) -> str | None:
     if proof.flipped:
         expr = f"({expr}).symm"
     intro = f"intro {' '.join(goal.variables)}\n" if goal.variables else ""
-    return true_code(f"{intro}{''.join(ln + chr(10) for ln in lem_lines)}exact {expr}")
+    return true_code(f"{intro}{''.join(ln + chr(10) for ln in lem_lines)}exact {expr}", hyp, goal, style=style)
 
 
 def seeded_grind_bodies(hyp: Equation, goal: Equation, seeds) -> list[tuple[str, str]]:
@@ -305,24 +378,15 @@ def seeded_grind_bodies(hyp: Equation, goal: Equation, seeds) -> list[tuple[str,
     return out
 
 
-def egraph_proof_code(hyp: Equation, goal: Equation, lemmas: list, chain: Chain, derived=()) -> str | None:
+def egraph_proof_code(hyp: Equation, goal: Equation, lemmas: list, chain: Chain, derived=(), *,
+                      style: str | None = None) -> str | None:
     """Certificate for an e-graph proof of the goal (shared sub-proofs as
     ``have``s; derived lemmas used by the chain emitted first)."""
     rules = {lem["name"]: (lem["lhs"], lem["rhs"], tuple(lem["vars"])) for lem in derived}
-    used: set = set()
-
-    def scan(links):
-        for link in links:
-            if link[0] == "lem":
-                used.add(link[1])
-            elif link[0] == "cong":
-                scan(link[1]); scan(link[2])
-    for _, _, _, sub in lemmas:
-        scan(sub)
-    scan(chain)
+    used = _used_names(lemmas, chain)
     if not chain and not lemmas:
         body = f"intro {' '.join(goal.variables)}\nrfl" if goal.variables else "rfl"
-        return true_code(body)
+        return true_code(body, hyp, goal, style=style)
     lem_lines = lemma_haves(hyp, derived, used) if used else []
     if lem_lines is None:
         return None
@@ -330,4 +394,4 @@ def egraph_proof_code(hyp: Equation, goal: Equation, lemmas: list, chain: Chain,
     if expr is None or end != goal.rhs:
         return None
     have_block = "".join(ln + "\n" for ln in lem_lines + lines)
-    return true_code(f"intro {' '.join(goal.variables)}\n{have_block}exact {expr}")
+    return true_code(f"intro {' '.join(goal.variables)}\n{have_block}exact {expr}", hyp, goal, style=style)

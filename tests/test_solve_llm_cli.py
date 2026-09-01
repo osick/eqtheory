@@ -85,11 +85,10 @@ def test_cli_smoke(tmp_path):
     assert r.returncode == 0 and out.exists() and "merged" in r.stdout
 
 
-@pytest.mark.skipif(lean_check.configure() is None, reason="Lean / judge build not configured")
+@pytest.mark.skipif(lean_check.configure() is None, reason="no Lean 4 binary found")
 def test_lean_check_end_to_end():
     cfg = lean_check.configure()
-    judge = lean_check.make_judge(FALSE.hypothesis, FALSE.goal, cfg)
-    ans = solve(FALSE, Config(model_budget=10), judge=judge)
+    ans = solve(FALSE, Config(model_budget=10), judge=lean_check.make_judge(cfg))
     assert ans is not None and ans.verdict == "false"
-    ans = solve(EQSAT, Config(model_budget=5), judge=lean_check.make_judge(EQSAT.hypothesis, EQSAT.goal, cfg))
+    ans = solve(EQSAT, Config(model_budget=5), judge=lean_check.make_judge(cfg))
     assert ans is not None and ans.verdict == "true"

@@ -23,16 +23,18 @@
   and the certificate shapes all assume it.
 - **Certificates fix the logic.** A True answer is a Lean term built
   from `h`, `.trans`, `.symm`, `congrArg` (and `grind` on lemma seeds);
-  a False answer is an explicit finite table or the ℕ construction. There
+  a False answer is an explicit finite table, an affine closed form or
+  the ℕ construction. There
   is no other kind of proof object, so the library cannot express, for
   example, a countermodel that is only known to exist non-constructively.
 
 ## Pragmatic
 
-- **Table certificates stop at Fin 10.** The judge's `finOpTable`
-  reads one digit per entry; larger finite models are certified only if
-  they are affine (closed form). A non-affine Fin-11 model is found but
-  cannot be certified in the current shapes.
+- **`decide` cost grows with the model.** A table certificate is checked
+  by Lean's kernel evaluating every instance: n^(variables) cases per law.
+  Fin 12 with three variables is ~1 700 cases (seconds); Fin 20 with four
+  variables is 160 000 and needs `decide +kernel` or a smarter proof.
+  (The old Fin-10 ceiling was a judge artefact and is gone.)
 - **Fin 9–10 complete search is expensive.** The CDCL encoding grows as
   n^(variables) × n³; four-variable laws at Fin 9 need hundreds of
   megabytes. The memory estimate switches to the cell search, which can
@@ -42,13 +44,12 @@
   completion engine's node budgets do not.
 - **`grind`-based certificates depend on the Lean version.** The
   explicit-chain certificates are stable; `grind` (seeded grind, the ℕ
-  law) behaves differently across Lean releases. Validated with Lean
-  4.33.1 and the Stage-2 judge library at upstream `817a465`.
-- **The compile check is not the judge.** `eqtheory.lean.check`
-  compiles a certificate; it does not apply the declaration allowlist,
-  the banned-token scan or the nonce binding of the competition judge.
-  The generators avoid all of those by construction, but a hand-written
-  proof passed through `true_code` is not policy-checked here.
+  law) behaves differently across Lean releases. The default
+  `lean_toolchain` setting is the validated version; change it when you
+  validate another.
+- **The compile check trusts Lean, nothing else.** A certificate that
+  compiles without `sorry` is a proof; the check does not sandbox the
+  file, so only compile certificates you generated or read.
 - **The LLM stage is a last resort, measured near zero.** On the
   Stage-2 residue the model solved 0 of 18 open problems in 144 calls;
   its value is hygiene (verified countermodels, no repeats), not reach.

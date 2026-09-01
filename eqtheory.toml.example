@@ -1,0 +1,16 @@
+# Copy to ./eqtheory.toml or ~/.config/eqtheory/config.toml (or point
+# EQTHEORY_CONFIG at it). Every key can also be set as EQTHEORY_<KEY> in
+# the environment, which takes precedence over the file.
+[eqtheory]
+lean_toolchain = "leanprover/lean4:v4.33.1"   # "none" = do not pin, use the `lean` found
+# lean_bin = "/opt/lean/bin/lean"
+lean_timeout = 300
+lean_max_rec_depth = 20000
+model_max_n = 12
+sat_memory_mb = 1200
+llm_model = "openai/gpt-oss-120b"
+llm_base_url = "https://openrouter.ai/api/v1"
+llm_api_key_env = "OPENROUTER_API_KEY"
+llm_seed = 0
+llm_reasoning_effort = "low"
+llm_rounds = 4

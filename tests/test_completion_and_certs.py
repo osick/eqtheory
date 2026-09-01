@@ -1,5 +1,7 @@
 import time
 
+import pytest
+
 from eqtheory import Problem, parse_equation, parse_term
 from eqtheory.completion import (Budget, derive_lemmas, goal_instance, prove_by_superposition,
                                  rewrite_step, seed_lemmas)
@@ -56,7 +58,7 @@ class TestSuperposition:
         pr = prove_by_superposition(ORDER5_A.hypothesis, ORDER5_A.goal)
         assert pr is not None
         code = certs.superposition_code(ORDER5_A.hypothesis, ORDER5_A.goal, pr)
-        assert code and "exact" in code and code.startswith("import JudgeProblem")
+        assert code and "exact" in code and "class Magma" in code and "theorem submission : Goal" in code
 
     def test_never_proves_a_known_false_implication(self):
         assert prove_by_superposition(KNOWN_FALSE.hypothesis, KNOWN_FALSE.goal,
@@ -75,14 +77,24 @@ class TestCertificates:
         assert bodies and all(b.endswith("grind") and "∀" in b for _, b in bodies)
 
     def test_false_code_forms(self):
-        assert "finOpTable" in certs.false_code(2, [[0, 0], [0, 0]])
+        h, g = KNOWN_FALSE.hypothesis, KNOWN_FALSE.goal
         n = 11
-        code = certs.false_code(n, [[(4 * i + 8 * j) % n for j in range(n)] for i in range(n)])
+        aff = [[(4 * i + 8 * j) % n for j in range(n)] for i in range(n)]
+        # judge style (historical): finOpTable up to 10, named-Nat affine form above
+        assert "finOpTable" in certs.false_code(2, [[0, 0], [0, 0]], style="judge")
+        code = certs.false_code(n, aff, style="judge")
         assert "Nat.mod (Nat.add" in code and " % " not in code and "by decide" not in code
+        # standalone: self-contained, any size, affine closed form when there is one
+        code = certs.false_code(n, aff, h, g)
+        assert code.startswith("-- eqtheory certificate") and "class Magma" in code and "(4 * i.val + 8 * j.val + 0) % 11" in code
+        code = certs.false_code(13, [[(i * j) % 13 for j in range(13)] for i in range(13)], h, g)
+        assert "submission.table : Array (Array Nat)" in code and "by decide, by decide" in code
+        with pytest.raises(ValueError):
+            certs.false_code(2, [[0, 0], [0, 0]])
 
     def test_nat_residue_certificate_matches_the_verified_shape(self):
         code = certs.false_nat_residue_code(AUSTIN.hypothesis, 2, [[0, 0], [0, 0]], [[1, 1], [1, 1]],
-                                            [[1, -1], [-1, 1]], (0, 1, 0))
+                                            [[1, -1], [-1, 1]], (0, 1, 0), AUSTIN.goal)
         assert "def submission.op (a b : Nat) : Nat :=" in code
         assert "if a % 2 = 0 then (if b % 2 = 0 then b + 1 else (b - 1)) else (if b % 2 = 0 then b - 1 else (b + 1))" in code
         assert "show x = submission.op y (submission.op (submission.op z (submission.op y y)) x)" in code

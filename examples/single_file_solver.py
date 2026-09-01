@@ -4,7 +4,7 @@ in ~60 lines on top of eqtheory.
     python examples/single_file_solver.py "x = y ◇ (x ◇ y)" "x = (x ◇ y) ◇ x"
     python examples/single_file_solver.py --lean ...     # certificates checked
 
-Reads EQTHEORY_LEAN_BIN / EQTHEORY_JUDGE_ROOT for the optional Lean check
+Finds Lean via PATH/elan (or EQTHEORY_LEAN_BIN) for the optional check
 and OPENROUTER_API_KEY for the optional LLM round (--llm).
 """
 import sys
@@ -25,8 +25,8 @@ def main(argv):
     if "--lean" in flags:
         cfg = lean_check.configure()
         if cfg is None:
-            sys.exit("Lean not configured (EQTHEORY_LEAN_BIN, EQTHEORY_JUDGE_ROOT)")
-        judge = lean_check.make_judge(problem.hypothesis, problem.goal, cfg)
+            sys.exit("no Lean 4 binary found (install via elan or set EQTHEORY_LEAN_BIN)")
+        judge = lean_check.make_judge(cfg, problem.hypothesis, problem.goal)
     complete = OpenRouterClient() if "--llm" in flags else None
     trace = Trace()
     t0 = time.monotonic()

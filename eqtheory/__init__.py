@@ -14,8 +14,9 @@ from .terms import (  # noqa: F401
     kbo_greater, holds, evaluate,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
+from .config import settings, configure  # noqa: E402,F401
 from .solve import solve, Answer, Config, Trace  # noqa: E402,F401
 from .completion import derive_lemmas, prove_by_superposition, Budget  # noqa: E402,F401
 from .egraph import EGraph, saturate, prove_goal, prove_singleton  # noqa: E402,F401
@@ -25,7 +26,7 @@ __all__ = [
     "Equation", "Problem", "Term", "OP", "parse_term", "render_term", "parse_equation", "normalize",
     "term_vars", "term_leaves", "positions", "subterm", "replace_at", "match", "unify", "substitute", "rename",
     "kbo_greater", "holds", "evaluate",
-    "solve", "Answer", "Config", "Trace", "derive_lemmas", "prove_by_superposition", "Budget",
+    "settings", "configure", "solve", "Answer", "Config", "Trace", "derive_lemmas", "prove_by_superposition", "Budget",
     "EGraph", "saturate", "prove_goal", "prove_singleton",
     "find_countermodel", "residue_affine_countermodel", "Countermodel", "NatResidueModel", "__version__",
 ]

@@ -29,9 +29,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Iterator
 
+from ..config import settings
 from ..terms import Equation, Term, evaluate, holds
 
-MAX_TABLE_N = 10          # the judge's finOpTable reads one digit per entry
+MAX_TABLE_N = 10          # judge-style certificates only: finOpTable reads one digit per entry
 
 Table = list
 
@@ -155,16 +156,17 @@ def _matrix_linear_sweep(hyp, goal, primes, deadline):
 
 
 def linear_countermodel(hyp: Equation, goal: Equation, *, n_max: int = 32, primes=(2, 3),
-                        time_budget: float = 30.0, table_cap: int = MAX_TABLE_N) -> Countermodel | None:
-    """Symbolic linear ladder; every hit is re-verified numerically. The
-    affine sweep may pass ``table_cap`` (those models have a closed form);
-    the matrix family stays inside it (p² ≤ cap)."""
+                        time_budget: float = 30.0, table_cap: int | None = None) -> Countermodel | None:
+    """Symbolic linear ladder; every hit is re-verified numerically.
+    ``table_cap`` (judge style) limits non-affine tables to certifiable
+    sizes; affine models have a closed form and may exceed it."""
     deadline = time.monotonic() + time_budget
-    primes = tuple(p for p in primes if p * p <= table_cap)
+    if table_cap is not None:
+        primes = tuple(p for p in primes if p * p <= table_cap)
     for hit in (_affine_sweep(hyp, goal, n_max, deadline), _matrix_linear_sweep(hyp, goal, primes, deadline)):
         if hit is None:
             continue
-        if hit.n > table_cap and hit.affine_form() is None:
+        if table_cap is not None and hit.n > table_cap and hit.affine_form() is None:
             continue
         if is_countermodel(hyp, goal, hit.n, hit.table):
             return hit
@@ -683,10 +685,11 @@ def find_model_sat(hyp: Equation, goal: Equation, n: int, deadline: float):
     return table, False
 
 
-def decide_size(hyp: Equation, goal: Equation, n: int, deadline: float, memory_mb: float = 1200.0):
+def decide_size(hyp: Equation, goal: Equation, n: int, deadline: float, memory_mb: float | None = None):
     """Decide Fin n: (table, exhausted). CDCL when its encoding fits in
     ``memory_mb`` (60 % share), the cell search otherwise — both complete,
     so the verdict does not depend on which one ran."""
+    memory_mb = settings.sat_memory_mb if memory_mb is None else memory_mb
     cap = int(memory_mb * 0.6 * 1024 * 1024 / SAT_BYTES_PER_CLAUSE)
     if sat_clause_estimate(hyp, goal, n) <= cap:
         try:
@@ -702,8 +705,8 @@ EARLY_SIZES = (4, 5)
 EARLY_SHARE, EARLY_FLOOR = 0.10, 5.0
 
 
-def find_countermodel(hyp: Equation, goal: Equation, *, time_budget: float = 30.0, max_n: int = MAX_TABLE_N,
-                      facts: SearchFacts | None = None, memory_mb: float = 1200.0) -> Countermodel | None:
+def find_countermodel(hyp: Equation, goal: Equation, *, time_budget: float = 30.0, max_n: int | None = None,
+                      facts: SearchFacts | None = None, memory_mb: float | None = None) -> Countermodel | None:
     """The full ladder: symbolic linear → capped complete search on the
     early sizes → structured/affine → bilinear → seeded random → complete
     search on every size still open, up to ``max_n``.
@@ -711,6 +714,7 @@ def find_countermodel(hyp: Equation, goal: Equation, *, time_budget: float = 30.
     A verified countermodel or None; ``facts`` collects exhaustion verdicts.
     """
     facts = facts if facts is not None else SearchFacts()
+    max_n = settings.model_max_n if max_n is None else max_n
     start = time.monotonic()
     deadline = start + time_budget
 
@@ -720,7 +724,7 @@ def find_countermodel(hyp: Equation, goal: Equation, *, time_budget: float = 30.
             facts.exhausted.append(n)
         return table
 
-    hit = linear_countermodel(hyp, goal, time_budget=max(0.0, deadline - time.monotonic()), table_cap=max_n)
+    hit = linear_countermodel(hyp, goal, time_budget=max(0.0, deadline - time.monotonic()))
     if hit is not None:
         return hit
 

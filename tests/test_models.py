@@ -51,8 +51,8 @@ def test_ladder_reports_facts_and_verifies():
     facts = SearchFacts()
     cm = find_countermodel(KNOWN_FALSE.hypothesis, KNOWN_FALSE.goal, time_budget=60, facts=facts)
     assert cm is not None and is_countermodel(KNOWN_FALSE.hypothesis, KNOWN_FALSE.goal, cm.n, cm.table)
-    code = certs.false_code(cm.n, cm.table)
-    assert "refine ⟨Fin" in code
+    code = certs.false_code(cm.n, cm.table, KNOWN_FALSE.hypothesis, KNOWN_FALSE.goal)
+    assert f"Fin {cm.n}" in code and "decide" in code
 
 
 def test_austin_pair_has_a_residue_affine_model_but_no_small_finite_one():
@@ -66,5 +66,5 @@ def test_austin_pair_has_a_residue_affine_model_but_no_small_finite_one():
     assert not AUSTIN.goal.evaluate(m.op, dict(zip(AUSTIN.goal.variables, m.witness)))
     table, exhausted = decide_size(AUSTIN.hypothesis, AUSTIN.goal, 4, time.monotonic() + 60)
     assert table is None and exhausted
-    code = certs.false_nat_residue_code(AUSTIN.hypothesis, m.m, m.A, m.B, m.C, m.witness)
+    code = certs.false_nat_residue_code(AUSTIN.hypothesis, m.m, m.A, m.B, m.C, m.witness, AUSTIN.goal)
     assert "grind" in code and "decide" in code

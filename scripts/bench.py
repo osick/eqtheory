@@ -4,8 +4,7 @@
     python scripts/bench.py --report OUTDIR      # summarise all shards
 
 Records: {"id", "equation1", "equation2", "answer": true|false}. Every
-certificate is compiled with Lean (EQTHEORY_LEAN_BIN / EQTHEORY_JUDGE_ROOT
-must be set); --llm adds the OpenRouter round for problems the
+certificate is compiled with Lean 4 (found via PATH/elan or EQTHEORY_LEAN_BIN); --llm adds the OpenRouter round for problems the
 deterministic ladder leaves open (OPENROUTER_API_KEY from the environment).
 """
 from __future__ import annotations
@@ -41,7 +40,7 @@ def run(args):
             if r["id"] in done:
                 continue
             pr = Problem.parse(r["equation1"], r["equation2"])
-            judge = lean_check.make_judge(pr.hypothesis, pr.goal, cfg)
+            judge = lean_check.make_judge(cfg, pr.hypothesis, pr.goal)
             tr = Trace()
             t0 = time.monotonic()
             calls0 = client.calls if client else 0

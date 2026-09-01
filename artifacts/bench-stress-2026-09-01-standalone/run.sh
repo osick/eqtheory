@@ -1,10 +1,8 @@
 #!/bin/bash
-# 4 shards (box rule: ≤4 Lean judges at once), Lean-checked, LLM armed.
+# 4 shards, self-contained certificates (v0.2.0), Lean found via elan, LLM armed.
 cd "$(dirname "$0")/../.."
 set -a; source ~/.sair_env; set +a
-export EQTHEORY_LEAN_BIN=$HOME/.elan/toolchains/leanprover--lean4---v4.33.1/bin/lean
-export EQTHEORY_JUDGE_ROOT=$PWD/../info/equational-theories-lean-stage2
-OUT=artifacts/bench-stress-2026-09-01
+OUT=artifacts/bench-stress-2026-09-01-standalone
 for k in 0 1 2 3; do
   python3 scripts/bench.py artifacts/problems/stage2_stress_200.jsonl $OUT --shard $k/4 --llm > $OUT/shard-$k.log 2>&1 &
 done

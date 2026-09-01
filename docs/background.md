@@ -93,11 +93,14 @@ refutes the goal.
 
 ## 6. Certificates in Lean 4
 
-Lean 4 [deMouraUllrich21](#deMouraUllrich21) with Mathlib [mathlib20](#mathlib20) is the checker.
-Proofs are explicit terms (`.trans`, `.symm`, `congrArg`) with `have`s
-for shared lemmas, so they are independent of tactic heuristics; `grind`
-is used only as a finisher on lemma seeds and in the ℕ-model law. The
-judge shapes are documented in [certificates.md](certificates.md).
+Lean 4 [deMouraUllrich21](#deMouraUllrich21) is the checker; the
+certificates are self-contained and need only the core toolchain (no
+Mathlib [mathlib20](#mathlib20), although any Mathlib project checks them
+too). Proofs are explicit terms (`.trans`, `.symm`, `congrArg`) with
+`have`s for shared lemmas, so they are independent of tactic heuristics;
+finite models are decided by kernel evaluation (`decide`); `grind` is
+used only as a finisher on lemma seeds and in the ℕ-model law. The shapes
+are documented in [certificates.md](certificates.md).
 
 ## 7. LLM stage
 

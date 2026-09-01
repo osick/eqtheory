@@ -30,6 +30,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Callable, Sequence
 
+from .config import settings
 from .lean import certs
 from .models.finite import is_countermodel
 from .terms import Equation, Problem
@@ -83,8 +84,8 @@ side. Forbidden: proof holes, `Equation<N>_implies_Equation<M>` lemmas, bare
 `simp`, Mathlib-only tactics (`ring`, `linarith`, `aesop`, ...).
 
 If you become convinced the implication is FALSE, answer with a
-counterexample: a multiplication table on Fin n (2 <= n <= 10, row-major)
-that satisfies the hypothesis but breaks the goal, or for n > 10 an AFFINE
+counterexample: a multiplication table on Fin n (2 <= n <= 12, row-major)
+that satisfies the hypothesis but breaks the goal, or for larger n an AFFINE
 magma a ◇ b = (p·a + q·b + r) mod n as {{"n": n, "p": p, "q": q, "r": r}}.
 Hand-verify the hypothesis on it before answering.
 
@@ -222,25 +223,27 @@ def preflight(body: str) -> str | None:
 
 @dataclass
 class OpenRouterClient:
-    """OpenAI-compatible chat completions with stdlib HTTP. The API key is
-    read from ``OPENROUTER_API_KEY`` (or passed) and never logged."""
-    model: str = "openai/gpt-oss-120b"
-    seed: int = 0
-    reasoning_effort: str | None = "low"
-    provider_order: str | None = None
-    base_url: str = "https://openrouter.ai/api/v1"
-    timeout: float = 300.0
-    max_tokens: int = 6000
-    temperature: float = 0.0
+    """OpenAI-compatible chat completions with stdlib HTTP. Defaults come
+    from :mod:`eqtheory.config`; the API key is read from the environment
+    variable named by ``api_key_env`` (or passed) and never logged."""
+    model: str = field(default_factory=lambda: settings.llm_model)
+    seed: int = field(default_factory=lambda: settings.llm_seed)
+    reasoning_effort: str | None = field(default_factory=lambda: settings.llm_reasoning_effort)
+    provider_order: str | None = field(default_factory=lambda: settings.llm_provider_order)
+    base_url: str = field(default_factory=lambda: settings.llm_base_url)
+    timeout: float = field(default_factory=lambda: settings.llm_timeout)
+    max_tokens: int = field(default_factory=lambda: settings.llm_max_tokens)
+    temperature: float = field(default_factory=lambda: settings.llm_temperature)
     api_key: str | None = None
+    api_key_env: str = field(default_factory=lambda: settings.llm_api_key_env)
     attempts: int = 3
     calls: int = field(default=0, init=False)
     tokens: dict = field(default_factory=lambda: {"input": 0, "output": 0}, init=False)
 
     def __call__(self, prompt: str) -> str:
-        key = self.api_key or os.environ.get("OPENROUTER_API_KEY")
+        key = self.api_key or os.environ.get(self.api_key_env)
         if not key:
-            raise RuntimeError("OPENROUTER_API_KEY not set")
+            raise RuntimeError(f"{self.api_key_env} not set")
         payload = {"model": self.model, "messages": [{"role": "user", "content": prompt}],
                    "max_tokens": self.max_tokens, "temperature": self.temperature, "seed": self.seed}
         if self.reasoning_effort:
@@ -316,7 +319,7 @@ def llm_stage(problem: Problem, complete: Completer, *, judge: Callable[[str, st
                             + (" Several proofs failed: seriously consider FALSE." if failed_true >= 2 else ""))
                 continue
             seen[key] = rnd + 1
-            code = certs.true_code(body)
+            code = certs.true_code(body, hyp, goal)
             if judge is None:
                 return LLMOutcome("true", code, False, rnd + 1, prev)
             if judge("true", code):
@@ -353,7 +356,7 @@ def llm_stage(problem: Problem, complete: Completer, *, judge: Callable[[str, st
                 bad = "the hypothesis fails" if not hyp_holds(hyp, tbl) else "the goal does NOT fail"
                 prev.append(f"Attempt {rnd + 1}: on your table {bad} — it is not a countermodel.")
                 continue
-            return LLMOutcome("false", certs.false_code(n, tbl), True, rnd + 1, prev)
+            return LLMOutcome("false", certs.false_code(n, tbl, hyp, goal), True, rnd + 1, prev)
     return LLMOutcome(None, None, False, len(prev), prev)
 
 

@@ -7,6 +7,8 @@ import sys
 import time
 
 from . import __version__, completion, egraph, llm as llm_mod, viz
+from . import config as config_mod
+from .config import settings
 from .solve import solve as run_solve, Config, Trace
 from .lean import certs, check as lean_check
 from .models import finite, infinite
@@ -22,9 +24,9 @@ def _judge(a):
         return None
     cfg = lean_check.configure(timeout=a.lean_timeout)
     if cfg is None:
-        sys.exit("Lean not configured: set EQTHEORY_LEAN_BIN and EQTHEORY_JUDGE_ROOT (or EQTHEORY_LEAN_PATH)")
+        sys.exit("no Lean 4 binary found: install Lean via elan (https://leanprover.github.io) or set EQTHEORY_LEAN_BIN")
     pr = _problem(a)
-    return lean_check.make_judge(pr.hypothesis, pr.goal, cfg)
+    return lean_check.make_judge(cfg, pr.hypothesis, pr.goal)
 
 
 def cmd_solve(a):
@@ -88,7 +90,7 @@ def cmd_model(a):
         if aff:
             print(f"  affine: (a·i + b·j + c) mod n with (a, b, c) = {aff}")
         if a.cert:
-            print(certs.false_code(cm.n, cm.table))
+            print(certs.false_code(cm.n, cm.table, pr.hypothesis, pr.goal))
         return
     print(f"no finite countermodel found; sizes proven empty: {facts.exhausted}, swept: {facts.searched}")
     if a.infinite:
@@ -98,7 +100,7 @@ def cmd_model(a):
             return
         print(f"ℕ model: m={m.m} A={m.A} B={m.B} C={m.C} witness={m.witness}")
         if a.cert:
-            print(certs.false_nat_residue_code(pr.hypothesis, m.m, m.A, m.B, m.C, m.witness))
+            print(certs.false_nat_residue_code(pr.hypothesis, m.m, m.A, m.B, m.C, m.witness, pr.goal))
 
 
 def cmd_prove(a):
@@ -120,11 +122,15 @@ def cmd_cert(a):
         table = json.loads(a.table)
         if not finite.is_countermodel(pr.hypothesis, pr.goal, len(table), table):
             sys.exit("the table is not a countermodel of this problem")
-        print(certs.false_code(len(table), table))
+        print(certs.false_code(len(table), table, pr.hypothesis, pr.goal))
     elif a.proof:
-        print(certs.true_code(open(a.proof, encoding="utf-8").read()))
+        print(certs.true_code(open(a.proof, encoding="utf-8").read(), pr.hypothesis, pr.goal))
     else:
         sys.exit("give --table or --proof")
+
+
+def cmd_config(a):
+    print(config_mod.describe())
 
 
 def cmd_viz_proof(a):
@@ -148,16 +154,16 @@ def main(argv=None):
         sp.add_argument("hypothesis", help='e.g. "x = y ◇ (x ◇ y)"')
         sp.add_argument("goal")
         if lean:
-            sp.add_argument("--lean", action="store_true", help="check certificates with Lean (EQTHEORY_* env)")
-            sp.add_argument("--lean-timeout", type=float, default=300.0)
+            sp.add_argument("--lean", action="store_true", help="compile every certificate with Lean 4 (found via PATH/elan or EQTHEORY_LEAN_BIN)")
+            sp.add_argument("--lean-timeout", type=float, default=settings.lean_timeout)
 
     s = sub.add_parser("solve", help="run the full ladder"); common(s, lean=True)
     s.add_argument("--json", action="store_true"); s.add_argument("--out", help="write the certificate here")
     s.add_argument("--model-budget", type=float, default=60.0); s.add_argument("--superposition-budget", type=float, default=300.0)
     s.add_argument("--eqsat-budget", type=float, default=25.0); s.add_argument("--infinite-budget", type=float, default=20.0)
     s.add_argument("--llm", action="store_true", help="add an LLM round (OPENROUTER_API_KEY)")
-    s.add_argument("--llm-model", default="openai/gpt-oss-120b"); s.add_argument("--llm-seed", type=int, default=0)
-    s.add_argument("--llm-effort", default="low"); s.add_argument("--llm-rounds", type=int, default=4)
+    s.add_argument("--llm-model", default=settings.llm_model); s.add_argument("--llm-seed", type=int, default=settings.llm_seed)
+    s.add_argument("--llm-effort", default=settings.llm_reasoning_effort); s.add_argument("--llm-rounds", type=int, default=settings.llm_rounds)
     s.set_defaults(fn=cmd_solve)
 
     s = sub.add_parser("egraph", help="saturate and render the e-graph"); common(s)
@@ -168,7 +174,7 @@ def main(argv=None):
     s.set_defaults(fn=cmd_egraph)
 
     s = sub.add_parser("model", help="search countermodels"); common(s)
-    s.add_argument("--budget", type=float, default=60.0); s.add_argument("--max-n", type=int, default=finite.MAX_TABLE_N)
+    s.add_argument("--budget", type=float, default=60.0); s.add_argument("--max-n", type=int, default=settings.model_max_n)
     s.add_argument("--infinite", action="store_true", help="also try the ℕ residue-class family")
     s.add_argument("--cert", action="store_true", help="print the Lean certificate")
     s.set_defaults(fn=cmd_model)
@@ -179,6 +185,9 @@ def main(argv=None):
     s = sub.add_parser("cert", help="wrap a table or a tactic body as a certificate"); common(s)
     s.add_argument("--table", help="JSON table"); s.add_argument("--proof", help="file with a tactic body")
     s.set_defaults(fn=cmd_cert)
+
+    s = sub.add_parser("config", help="show the effective settings and where they come from")
+    s.set_defaults(fn=cmd_config)
 
     s = sub.add_parser("viz-proof", help="render an e-graph proof as a dot graph"); common(s)
     s.add_argument("--out", required=True); s.add_argument("--budget", type=float, default=10.0)
