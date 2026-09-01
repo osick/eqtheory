@@ -21,7 +21,8 @@ the second — and hand back a **Lean 4 certificate** either way.
 * a **CLI** with e-graph and proof **visualisation** (SVG/PNG/DOT).
 
 The algorithms are those of the SAIR Stage-2 solver (800/800 practice,
-see `../docs/paper/`), re-packaged with a clean API. Pure Python 3.11+,
+see the paper in [osick/SAIR-callenges](https://github.com/osick/SAIR-callenges/tree/main/challenge_02/docs/paper)),
+re-packaged with a clean API. Pure Python 3.11+,
 no required dependencies.
 
 ```bash

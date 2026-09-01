@@ -24,7 +24,7 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq graphviz
       - name: Lint
         run: python -m pyflakes eqtheory scripts examples tests
-      - name: Test (Lean-dependent test is skipped: no toolchain in CI)
+      - name: "Test (the Lean-dependent test skips itself: no toolchain in CI)"
         run: python -m pytest -q --cov=eqtheory --cov-report=term --cov-fail-under=80
       - name: CLI smoke
         run: |
