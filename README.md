@@ -1,3 +1,12 @@
+<p align="center"><img src="docs/logo.svg" alt="eqtheory — a proof drawn along the ◇" width="760"></p>
+
+<p align="center">
+<a href="https://pypi.org/project/eqtheory/"><img src="https://img.shields.io/pypi/v/eqtheory.svg" alt="PyPI"></a>
+<a href="https://github.com/osick/eqtheory/actions/workflows/ci.yml"><img src="https://github.com/osick/eqtheory/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+<a href="https://pypi.org/project/eqtheory/"><img src="https://img.shields.io/pypi/pyversions/eqtheory.svg" alt="Python"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
+</p>
+
 # eqtheory
 
 A Python library for **equational theories over magmas**: given two
@@ -25,9 +34,18 @@ see the paper in [osick/SAIR-callenges](https://github.com/osick/SAIR-callenges/
 re-packaged with a clean API. Pure Python 3.11+,
 no required dependencies.
 
+## Install
+
 ```bash
-pip install -e .            # from this directory
-pip install -e ".[viz,dev]" # graphviz bindings, pytest
+pip install eqtheory                 # from PyPI (Python ≥ 3.11, no required dependencies)
+pip install "eqtheory[viz]"          # + graphviz bindings for image rendering (needs the `dot` binary)
+```
+
+For development:
+
+```bash
+git clone https://github.com/osick/eqtheory.git && cd eqtheory
+pip install -e ".[viz,dev]" && python -m pytest
 ```
 
 ## Quick start
@@ -81,6 +99,7 @@ eqtheory cert --table "[[0,1],[1,0]]" ...                       # wrap a table a
 * [Releasing](docs/releasing.md) — moving to its own repository, CI, tags, PyPI
 * `examples/single_file_solver.py` — a complete solver in 60 lines
 * `artifacts/` — sample renderings and benchmark reports
+* `scripts/make_logo.py` — the logo above is generated from a real solve (the e-graph proof of `x = x ◇ y ⇒ x = (x ◇ y) ◇ z`)
 
 ## Status
 
