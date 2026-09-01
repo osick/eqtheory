@@ -76,13 +76,26 @@ eqtheory cert --table "[[0,1],[1,0]]" ...                       # wrap a table a
 * [Mathematical background](docs/background.md) — the theory behind each engine, with references
 * [Certificates](docs/certificates.md) — the Lean shapes and the proof-policy lessons
 * [API overview](docs/api.md)
+* [Limitations](docs/limitations.md) — theoretical and pragmatic
+* [Releasing](docs/releasing.md) — moving to its own repository, CI, tags, PyPI
 * `examples/single_file_solver.py` — a complete solver in 60 lines
 * `artifacts/` — sample renderings and benchmark reports
 
 ## Status
 
 Version 0.1.0 (2026-09-01). Tests: `python -m pytest` (70 tests; the Lean
-end-to-end test is skipped unless Lean is configured). Benchmarks with
-Lean-checked certificates are in `artifacts/bench-*/REPORT.md`.
+end-to-end test is skipped unless Lean is configured). Benchmark (2026-09-01, 200-problem Stage-2 stress set, every certificate
+compiled with Lean, LLM never needed): **200/200 correct** — see
+`artifacts/bench-stress-2026-09-01/REPORT.md`.
+
+## Limitations (short form)
+
+Implication between magma laws is undecidable; every engine is budgeted,
+so "no answer" is not a verdict. Finite search is complete per size but
+cannot see infinite-only countermodels beyond the ℕ residue-class family;
+table certificates stop at Fin 10 (affine models go further); `grind`
+certificates are Lean-version-sensitive; the compile check is not the
+competition judge; the LLM stage adds hygiene, not reach. Details and
+measurements: [docs/limitations.md](docs/limitations.md).
 
 License: MIT.

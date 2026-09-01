@@ -1,7 +1,9 @@
 # Changelog
 
 ## 0.1.0 (2026-09-01)
-First release — the Stage-2 solver's algorithms as a library.
+First release — the Stage-2 solver's algorithms as a library. Validated
+200/200 on the Stage-2 stress set with Lean-checked certificates
+(`artifacts/bench-stress-2026-09-01/REPORT.md`).
 - `terms`: parser/renderer, matching, unification, ground KBO.
 - `egraph` + `proofs`: proof-producing e-graph, equality saturation with
   instantiation/collapse passes, shortest shared explanations, chain replay.
@@ -16,3 +18,5 @@ First release — the Stage-2 solver's algorithms as a library.
   countermodels, OpenRouter client.
 - `solve`: the default ladder; `cli`: solve/prove/model/egraph/viz-proof/cert.
 - `viz`: e-graph and proof-graph rendering (graphviz, SVG fallback).
+- CI (pyflakes, pytest+coverage, build) and tag-driven release workflow
+  (GitHub Release + PyPI trusted publishing); `docs/limitations.md`.

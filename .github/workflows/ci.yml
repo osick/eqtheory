@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" pyflakes
+          sudo apt-get update -qq && sudo apt-get install -y -qq graphviz
+      - name: Lint
+        run: python -m pyflakes eqtheory scripts examples tests
+      - name: Test (Lean-dependent test is skipped: no toolchain in CI)
+        run: python -m pytest -q --cov=eqtheory --cov-report=term --cov-fail-under=80
+      - name: CLI smoke
+        run: |
+          eqtheory --version
+          eqtheory solve --model-budget 5 "x ◇ y = y ◇ x" "x = x ◇ x"
+          eqtheory egraph --render egraph.svg --budget 3 "x = x ◇ y" "x = (x ◇ y) ◇ z"
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install build twine
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
